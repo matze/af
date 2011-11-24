@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.ndimage
-import PIL
 import glob
+from PIL import Image
 
 
 class FocusPoint(object):
@@ -24,11 +24,16 @@ class FocusPoint(object):
     def __str__(self):
         return "[%i:%i, %i:%i]" % self.region
 
+def create_cos_window(w, h):
+    ww = np.cos(np.linspace(-np.pi / 2, np.pi / 2, w).reshape((-1, 1)))
+    hw = np.cos(np.linspace(-np.pi / 2, np.pi / 2, h).reshape((1, -1)))
+    return np.dot(ww, hw)
+
 
 def cost_stddev(image):
     """Compute the sharpness of the image as the standard deviation of the
     image."""
-    return np.std(image) / ((np.max(image) - np.min(image)) / 2)
+    return 1.0 / np.std(image) / ((np.max(image) - np.min(image)) / 2)
 
 
 def cost_sobel(image):
@@ -48,9 +53,7 @@ def cost_frequencies(image):
     """ Compute the sharpness of the image as the weighted sum of all
     frequencies."""
     w, h = image.shape
-    ww = np.cos(np.linspace(-np.pi / 2, np.pi / 2, w).reshape((-1, 1)))
-    hw = np.cos(np.linspace(-np.pi / 2, np.pi / 2, h).reshape((1, -1)))
-    window = np.dot(ww, hw)
+    window = create_cos_window(w, h)
     F_image = np.fft.fft2(image * window)
     F_lower = F_image[w / 2:, :]
 
@@ -77,23 +80,12 @@ def discriminate(cost_fn, image_stack, focus_point, image1, image2):
 def optimize(image_stack, focus_point, cost_fn):
     """Return the index of the presumably sharpest image of the `image_stack`
     using the region defined by `focus` and the cost function `cost_fn`"""
-    current_index = 0
-    next_index = 1
-    while current_index != next_index:
-        best_index = discriminate(cost_fn, image_stack, focus_point, \
-                current_index, next_index)
-
-        if best_index == current_index:
-            return best_index
-
-        # that's pretty much a gradient descent
-        if best_index > current_index:
-            next_index += 1
-        elif best_index < current_index:
-            next_index -= 1
-        current_index = best_index
-
-    return current_index
+    x0, y0, x1, y1 = focus_point.region
+    window = create_cos_window(y1 - y0, x1 - x0)
+    J = np.zeros((image_stack.shape[2]))
+    for i in range(J.shape[0]):
+        J[i] = cost_fn(window * image_stack[y0:y1,x0:x1,i])
+    return J
 
 
 def load_image_stack(pathname_pattern):
@@ -105,7 +97,7 @@ def load_image_stack(pathname_pattern):
     filenames.sort()
     stack = None
     for filename in filenames:
-        img = np.array(PIL.Image.open(filename))
+        img = np.array(Image.open(filename))
         if stack is not None:
             stack = np.dstack((stack, img))
         else:

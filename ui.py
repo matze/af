@@ -2,12 +2,10 @@ import gtk
 import gobject
 import hashlib
 import af
-import scipy.misc
-import scipy.ndimage
 import numpy as np
 
-# from matplotlib.figure import Figure
-# from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
 
 
 def make_grey(arr):
@@ -94,56 +92,64 @@ class FocusCanvas(gtk.DrawingArea):
         cr.set_source_rgb(0.1, 0.1, 0.1)
         cr.set_line_width(1.0)
         r = self.region_start
-        cr.rectangle(r[0] + 0.5, r[1] + 0.5, self.region_width, self.region_height)
+        cr.rectangle(r[0] + 0.5, r[1] + 0.5, self.region_width,
+                self.region_height)
         cr.stroke()
 
 
-def generate_test_stack():
-    last_scale = scipy.misc.lena()
-    stack = np.copy(last_scale)
-    for i in range(5):
-        last_scale = scipy.ndimage.gaussian_filter(last_scale, 1.5)
-        stack = np.dstack((last_scale, stack))
-        stack = np.dstack((stack, last_scale))
-    return stack
+class FigureWidget(gtk.ScrolledWindow):
+    def __init__(self, figure):
+        super(FigureWidget, self).__init__()
+        self.set_border_width(10)
+        self.set_policy(hscrollbar_policy=gtk.POLICY_AUTOMATIC,
+            vscrollbar_policy=gtk.POLICY_ALWAYS)
+        self.canvas = FigureCanvas(figure)
+        self.canvas.set_size_request(500, 100)
+        self.add_with_viewport(self.canvas)
 
 
-class Optimizer(object):
-    def __init__(self, canvas):
-        self.stack = generate_test_stack()
-        canvas.connect('region-updated', self.on_region_update)
-        canvas.update_image(self.stack[:,:,0])
+class Application(object):
+    def __init__(self):
+        self.stack = af.load_image_stack("data/*.jpg")
+
+        win = gtk.Window()
+        win.connect("destroy", lambda x: gtk.main_quit())
+        win.set_default_size(960, 540)
+        win.set_title("Autofocus Test")
+
+        vpane = gtk.VPaned()
+        win.add(vpane)
+
+        self.canvas = FocusCanvas()
+        self.canvas.connect('region-updated', self.on_region_update)
+        self.canvas.update_image(self.stack[:,:,0])
+        vpane.add(self.canvas)
+
+        self.figure = Figure(figsize=(5, 1), dpi=100)
+        self.ax = self.figure.add_subplot(111)
+        self.figure_widget = FigureWidget(self.figure)
+        vpane.add(self.figure_widget)
+
+        win.show_all()
 
     def on_region_update(self, widget, x, y, width, height):
         fp = af.FocusPoint(x, y, width, height)
-        opt = af.optimize(self.stack, fp, af.cost_gradient)
-        canvas.update_image(self.stack[:,:,opt])
+
+        J_sobel = af.optimize(self.stack, fp, af.cost_sobel)
+        J_grad = af.optimize(self.stack, fp, af.cost_gradient)
+        J_stddev = af.optimize(self.stack, fp, af.cost_stddev)
+
+        self.ax.clear()
+        self.ax.plot(J_sobel / np.max(J_sobel), '.-', label='Sobel')
+        self.ax.plot(J_grad / np.max(J_grad), '.-', label='Gradient')
+        self.ax.plot(J_stddev / np.max(J_stddev), '.-', label='Stddev')
+        self.ax.legend(loc=3)
+        self.figure.canvas.draw()
+
+        opt = np.argmax(J_sobel)
+        self.canvas.update_image(self.stack[:,:,opt])
 
 
 if __name__ == '__main__':
-    win = gtk.Window()
-    win.connect("destroy", lambda x: gtk.main_quit())
-    win.set_default_size(400, 300)
-    win.set_title("Embedding in GTK")
-
-    # f = Figure(figsize=(5, 2), dpi=100)
-    # a = f.add_subplot(111)
-
-    vbox = gtk.VBox()
-    win.add(vbox)
-
-    canvas = FocusCanvas()
-    optimizer = Optimizer(canvas)
-    vbox.add(canvas)
-
-    # scrolled = gtk.ScrolledWindow()
-    # scrolled.set_border_width(10)
-    # scrolled.set_policy(hscrollbar_policy=gtk.POLICY_AUTOMATIC,
-    #     vscrollbar_policy=gtk.POLICY_ALWAYS)
-    # canvas = FigureCanvas(f)
-    # canvas.set_size_request(500, 200)
-    # scrolled.add_with_viewport(canvas)
-    # vbox.add(scrolled)
-
-    win.show_all()
+    app = Application()
     gtk.main()
