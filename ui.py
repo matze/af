@@ -89,8 +89,8 @@ class FocusCanvas(gtk.DrawingArea):
             cr.set_source_pixbuf(self.current_image, 1, 1)
             cr.paint()
 
-        cr.set_source_rgb(0.1, 0.1, 0.1)
-        cr.set_line_width(1.0)
+        cr.set_source_rgb(0.204, 0.541, 0.741)
+        cr.set_line_width(2.0)
         r = self.region_start
         cr.rectangle(r[0] + 0.5, r[1] + 0.5, self.region_width,
                 self.region_height)
