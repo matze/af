@@ -91,8 +91,9 @@ class FocusCanvas(gtk.DrawingArea):
 
         cr.set_source_rgb(0.204, 0.541, 0.741)
         cr.set_line_width(2.0)
+        cr.set_dash([4.0, 2.0])
         r = self.region_start
-        cr.rectangle(r[0] + 0.5, r[1] + 0.5, self.region_width,
+        cr.rectangle(r[0], r[1], self.region_width,
                 self.region_height)
         cr.stroke()
 
@@ -121,7 +122,7 @@ class Application(object):
         win.add(vpane)
 
         self.canvas = FocusCanvas()
-        self.canvas.connect('region-updated', self.on_region_update)
+        self.canvas.connect('region-updated', self._on_region_update)
         self.canvas.update_image(self.stack[:,:,0])
         vpane.add(self.canvas)
 
@@ -132,7 +133,7 @@ class Application(object):
 
         win.show_all()
 
-    def on_region_update(self, widget, x, y, width, height):
+    def _on_region_update(self, widget, x, y, width, height):
         fp = af.FocusPoint(x, y, width, height)
 
         J_sobel = af.optimize(self.stack, fp, af.cost_sobel)
