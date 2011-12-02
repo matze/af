@@ -141,9 +141,9 @@ class Application(object):
         J_stddev = af.optimize(self.stack, fp, af.cost_stddev)
 
         self.ax.clear()
-        self.ax.plot(J_sobel / np.max(J_sobel), '.-', label='Sobel')
-        self.ax.plot(J_grad / np.max(J_grad), '.-', label='Gradient')
-        self.ax.plot(J_stddev / np.max(J_stddev), '.-', label='Stddev')
+        self.ax.plot(J_sobel / np.max(J_sobel), '.-', color='#348ABD', label='Sobel')
+        self.ax.plot(J_grad / np.max(J_grad), '.-', color='#7A68A6', label='Gradient')
+        self.ax.plot(J_stddev / np.max(J_stddev), '.-', color='#A60628', label='Stddev')
         self.ax.legend(loc=3)
         self.figure.canvas.draw()
 
