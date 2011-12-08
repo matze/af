@@ -43,10 +43,17 @@ def cost_sobel(image):
     return np.sum(np.hypot(sx, sy))
 
 
-def cost_gradient(image):
+def cost_abs_gradient(image):
     """Compute the sharpness as sum of absolute gradient intensities."""
     d = np.roll(image, -1, axis=1)
     return np.sum(np.abs(image[:,:-1] - d[:,:-1]))
+
+
+def cost_squared_gradient(image):
+    """Compute the sharpness as sum of squared gradient intensities."""
+    d = np.roll(image, -1, axis=1)
+    r = image[:,:-1] - d[:,:-1]
+    return np.sum(r * r)
 
 
 def cost_frequencies(image):
